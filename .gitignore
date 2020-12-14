@@ -1,3 +1,7 @@
 .ipynb_checkpoints
 MNIST
 CIFAR10
+log/
+plots/
+AutoEncoder/models/
+
