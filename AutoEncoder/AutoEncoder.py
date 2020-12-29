@@ -119,7 +119,7 @@ def cuda_memory() -> str:
     return str("reserved cache {:.0f}/{:.0f} MB.".format(c/1000**2,t/1000**2))
 
 
-if __name__ == '__main__':
+def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	
 	# hyperparams
@@ -139,10 +139,10 @@ if __name__ == '__main__':
 		"hidden_sizes": [[500],[1000],[2000],[1000,500],[2000,1000],[2000,1000,500]],
 		"code_lengths": [1,2,3,4,5],
 		"batch_sizes": [10,100,500,1000],
-		"activation_types": ["ReLU"],
+		"activation_types": ["ReLU","linear"],
 		
 		# misc
-		"verbose": True,
+		"verbose": False,
 		"device": device,
 	}
 
@@ -156,14 +156,15 @@ if __name__ == '__main__':
 	image, _ = dataiter.next()
 
 	params.update({
-		"epochs": 40,
-		"iterations": 10,
-		"code_lengths": [1],
-		"batch_sizes": [100],
-		"activation_types": ["ReLU"]
+		#"code_lengths": [1],
+		#"batch_sizes": [100],
+		"activation_types": ["ReLU"],
+		#"hidden_sizes": [[10],[20]],
+		#"epochs": 3,
+		#"iterations": 2,
 	})
 	
-	verbose = params['verbose']
+	verbose = True
 	if verbose: 
 		print(device)
 		cuda_memory()
@@ -217,4 +218,5 @@ if __name__ == '__main__':
 	print("\nelapsed in {}".format(datetime.timedelta(seconds=(end - start))))
 
 
-
+if __name__ == '__main__':
+	main()
