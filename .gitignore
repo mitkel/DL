@@ -5,4 +5,5 @@ log/
 plots/
 AutoEncoder/models/
 __pycache__/
-
+literature/
+data/
