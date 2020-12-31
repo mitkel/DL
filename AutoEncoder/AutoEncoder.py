@@ -1,56 +1,52 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
 import torch.multiprocessing as mp
 
-import sys
 import time, datetime
 import pickle
-import itertools
-import matplotlib.pyplot as plt
 import numpy as np
-from collections import OrderedDict 
+from collections import OrderedDict
 
 # model architecture and training
 
 class AE(nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
-        
+
         if kwargs['linear']:
             self.activation = nn.Identity()
         else:
             self.activation = nn.ReLU()
-        
+
         encoder = OrderedDict()
-        for idx,(i,o) in enumerate(zip(kwargs['layers'][:-1], 
+        for idx,(i,o) in enumerate(zip(kwargs['layers'][:-1],
                                        kwargs['layers'][1:])):
-            encoder["encoder-"+str(idx)] = nn.Sequential(nn.Linear(in_features=i, 
+            encoder["encoder-"+str(idx)] = nn.Sequential(nn.Linear(in_features=i,
                                                                    out_features=o,
-                                                                   bias=kwargs['bias']), 
+                                                                   bias=kwargs['bias']),
                                                          self.activation)
         self.encoder = nn.Sequential(encoder)
-        
-        
+
+
         decoder = OrderedDict()
         for idx,(i,o) in enumerate(zip(list(reversed(kwargs['layers']))[:-1],
                                        list(reversed(kwargs['layers']))[1:])):
-            decoder["decoder-"+str(idx)] = nn.Sequential(nn.Linear(in_features=i, 
-                                                                   out_features=o, 
-                                                                   bias=kwargs['bias']), 
+            decoder["decoder-"+str(idx)] = nn.Sequential(nn.Linear(in_features=i,
+                                                                   out_features=o,
+                                                                   bias=kwargs['bias']),
                                                          self.activation)
-        
+
         # change last layer to linear if params['last-linear'] == True
         enc = len(kwargs['layers'])-2
         if kwargs['last-linear']:
-            decoder["decoder-"+str(enc)] = nn.Sequential(nn.Linear(in_features=kwargs['layers'][1], 
-                                                                   out_features=kwargs['layers'][0], 
+            decoder["decoder-"+str(enc)] = nn.Sequential(nn.Linear(in_features=kwargs['layers'][1],
+                                                                   out_features=kwargs['layers'][0],
                                                                    bias=kwargs['bias']))
-            
+
         self.decoder = nn.Sequential(decoder)
-            
+
 
     def forward(self, x):
         shape = x.shape
@@ -59,38 +55,38 @@ class AE(nn.Module):
         x = self.decoder(x)
         x = torch.reshape(x, shape)
         return x
-    
+
     def activations(self, x, rank_only=True):
         self.eval()
         Phi = []
         with torch.no_grad():
             shape = x.shape
             x = torch.flatten(x, start_dim=1)
-            
+
             for l in self.encoder:
                 x = l(x)
                 if rank_only:
                     Phi.append( np.linalg.matrix_rank(np.matrix(x)) )
                 else:
                     Phi.append(x)
-            
+
             for l in self.decoder:
                 x = l(x)
                 if rank_only:
                     Phi.append( np.linalg.matrix_rank(np.matrix(x)) )
                 else:
                     Phi.append(x)
-                
+
         return Phi
-    
+
 def train(model, train_loader, q, device, verbose=False, **kwargs):
     optimizer=  kwargs['optimizer'](model.parameters(), lr=kwargs['lr'])
     model.train()
     hist = []
-    
+
     for epoch in range(kwargs['epochs']):
         loss = torch.zeros((), device = device)
-        
+
         for batch_features, _ in train_loader:
             batch_features = batch_features.to(device)
             optimizer.zero_grad()
@@ -109,7 +105,7 @@ def train(model, train_loader, q, device, verbose=False, **kwargs):
 
 def get_loader(set0, batch_size):
     return torch.utils.data.DataLoader(set0, batch_size = batch_size, shuffle = True)
-    
+
 
 def cuda_memory() -> str:
     t = torch.cuda.get_device_properties(0).total_memory
@@ -121,34 +117,35 @@ def cuda_memory() -> str:
 
 def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	
+
 	# hyperparams
-	params = {    
+	params = {
 		# model
 		"linear": False,
 		"bias": False,
 		"last-linear": False,
 		"layers": [784,10,1],
-		
+
 		# training
 		"lr": 1e-3,
 		"epochs": 40,
 		"iterations": 5,
 		"optimizer": optim.Adam,
 		"criterion": nn.MSELoss(reduction='mean'),
-		"hidden_sizes": [[500],[1000],[2000],[1000,500],[2000,1000],[2000,1000,500]],
+		"hidden_sizes": [[500],[1000],[2000],[1000,500],[2000,1000],[2000,1000,500],[2000,1000,500,300],[2000,1000,500,300,100]],
 		"code_lengths": [1,2,3,4,5],
 		"batch_sizes": [10,100,500,1000],
 		"activation_types": ["ReLU","linear"],
-		
+
 		# misc
 		"verbose": False,
 		"device": device,
+		"model_save": False,
 	}
 
 	# load data
-	set0 = tv.datasets.MNIST("../MNIST/", 
-			                 download=True, 
+	set0 = tv.datasets.MNIST("../MNIST/",
+			                 download=True,
 			                 train = True,
 			                 transform = tv.transforms.ToTensor())
 	loader0 = get_loader(set0, len(set0))
@@ -156,30 +153,30 @@ def main():
 	image, _ = dataiter.next()
 
 	params.update({
-		#"code_lengths": [1],
-		#"batch_sizes": [100],
+		"code_lengths": [1,2,3],
+		"batch_sizes": [100],
 		"activation_types": ["ReLU"],
 		#"hidden_sizes": [[10],[20]],
 		#"epochs": 3,
 		#"iterations": 2,
 	})
-	
+
 	verbose = True
-	if verbose: 
+	if verbose:
 		print(device)
 		cuda_memory()
-		
+
 	start = round(time.time())
-	
+
 	mp.set_start_method('spawn', force=True)
 	q = mp.Queue()
-	
+
 	for activation_type in params['activation_types']:
 		if verbose: print(activation_type)
 		params['linear'] = (activation_type == "linear")
 		for batch in params['batch_sizes']:
 		    loader = get_loader(set0, batch)
-		    if verbose: 
+		    if verbose:
 		        print("Batch size: {}".format(batch))
 
 		    for code in params['code_lengths']:
@@ -189,7 +186,7 @@ def main():
 		            name = "AE-{}-Adam-L{}-B{}".format(activation_type, params['layers'][1:], batch)
 		            Phi = [[] for i in range(params['iterations'])]
 		            Hist = [[] for i in range(params['iterations'])]
-		            
+
 		            for i in range(params['iterations']):
 		                model = AE(**params).to(device)
 		                model.share_memory()
@@ -197,23 +194,24 @@ def main():
 		                p.start()
 		                p.join()
 		                del p
-		                
+
 		                model.to(torch.device("cpu"))
 		                Phi[i] = model.activations(image)
-		                Hist[i] = q.get() 
+		                Hist[i] = q.get()
 		            print(cuda_memory())
-		            
+
 		            # saving the results
-		            torch.save(model.state_dict(),"models/"+name+"_model")
+		            if params['model_save'] == True:
+			            torch.save(model.state_dict(),"models/"+name+"_model")
 		            with open("models/"+name+"_activations", "wb") as fp:
 		                pickle.dump(Phi, fp)
 		            with open("models/"+name+"_history", "wb") as fp:
 		                pickle.dump(Hist, fp)
-		            
+
 		            del model, Phi
 		print("\n")
 
-		                
+
 	end = round(time.time())
 	print("\nelapsed in {}".format(datetime.timedelta(seconds=(end - start))))
 
