@@ -1,45 +1,50 @@
 import numpy as np
+import torch
+from torch.utils.data import Dataset
 
 def EM_step(x,dt=1,mu=0,sigma=1,theta=1, **kwargs):
-    x = np.matrix(x)
+    x = np.array(x)
     Z = np.random.normal(size=x.shape)
     return x + theta*(mu-x)*dt + np.sqrt(2*dt)*sigma*Z
 
 def stationary(size=1, mu=0, sigma=1, theta=1, **kwargs):
     return np.random.normal(loc = mu, scale = sigma/np.sqrt(theta), size=size)
 
-# N - # slices of the interval [0,1]
-def trajectory(x0,T,N=1,**kwargs):
-    X=np.matrix(x0).T
+# slices - # slices of the interval [0,1]
+def trajectory(x0, T, slices=1, **kwargs):
+    X=np.array(x0)
     x,y=x0,x0
-    for i in range(T*N):
-        x, y = y, EM_step(x, dt=1/N, **kwargs)
-        if i%N == N-1:
-            X = np.hstack([X,y.T])
+    for i in range(T*slices):
+        x, y = y, EM_step(x, dt=1/slices, **kwargs)
+        if i%slices == slices-1:
+            X = np.append(X, y)
     return X
 
-def gen_data(path, **kwargs):
-    x0 = stationary(**params)
-    X = trajectory(x0, **params)
-    np.save(path, X)
+def gen_data(size=1, path="", save=False, **kwargs):
+    x0 = stationary(size, **kwargs)
+    X = trajectory(x0, **kwargs)
+    if save:
+        np.save(path, X)
+    else:
+        return X
 
-if __name__ == '__main__':
-    params = {
-        'N': 10,
-        'T': 100,
-        'size': 10000,
-        'mu': 1.,
-        'sigma': 0.2,
-        'theta': 1.,
-    }
-    gen_data('data/train0', **params)
+class cvae_ds(Dataset):
+    def __init__(self, X, Y):
+        self.X = torch.tensor(X, dtype = torch.float)
+        self.Y = torch.tensor(Y, dtype = torch.float)
 
-    params['size'] = 1000
-    gen_data('data/test', **params)
+        if len(self.X.shape) == 1:
+            self.X = self.X.unsqueeze(1)
 
-    params['size'] = 10000
-    params.update({
-        'mu': np.random.uniform(low=-5,high=5, size=params['size']),
-        'sigma': np.random.beta(a=2,b=8,size=params['size']),
-    })
-    gen_data('data/train1', **params)
+        if len(self.Y.shape) == 1:
+            self.Y = self.Y.unsqueeze(1)
+
+
+    def __len__(self):
+        return len(self.Y)
+
+    def __getitem__(self, idx):
+        if self.X.shape == (1,):
+            return (self.X, self.Y[idx])
+        else:
+            return (self.X[idx], self.Y[idx])
