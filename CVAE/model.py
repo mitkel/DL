@@ -58,10 +58,12 @@ class CVAE(nn.Module):
         try:
             x = torch.cat([input, cond], dim=1)
         except:
+            print(f"{input.shape},{cond.shape}")
             if len(input.shape) == 1:
                 input = input.unsqueeze(1)
             if len(cond.shape) == 1:
                 cond = cond.unsqueeze(1)
+            print(f"{z.shape},{cond.shape}")
             x = torch.cat([input, cond], dim=1)
         code = self.encoder(x)
         mu = self.fc_mu(code)
@@ -83,6 +85,7 @@ class CVAE(nn.Module):
         try:
             x = torch.cat([z, cond], dim=1)
         except:
+            print(f"{z.shape},{cond.shape}")
             if len(z.shape) == 1:
                 z = z.unsqueeze(1)
             if len(cond.shape) == 1:
