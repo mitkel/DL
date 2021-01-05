@@ -7,6 +7,7 @@ import torch.multiprocessing as mp
 import time, datetime
 import pickle
 import numpy as np
+from functools import partial
 from collections import OrderedDict
 
 # model architecture and training
@@ -79,7 +80,7 @@ class AE(nn.Module):
 
         return Phi
 
-def train(model, train_loader, q, device, verbose=False, **kwargs):
+def train(model, train_loader, device, verbose=False, **kwargs):
     optimizer=  kwargs['optimizer'](model.parameters(), lr=kwargs['lr'])
     model.train()
     hist = []
@@ -98,10 +99,10 @@ def train(model, train_loader, q, device, verbose=False, **kwargs):
             loss += train_loss.item()
 
         loss = loss / len(train_loader)
-        hist.append(loss.item())
+       	hist.append(loss.item())
         if verbose:
             print("{};{:.6f}".format(epoch + 1, loss))
-    q.put(hist)
+    return hist
 
 def get_loader(set0, batch_size):
     return torch.utils.data.DataLoader(set0, batch_size = batch_size, shuffle = True)
@@ -120,7 +121,7 @@ def main():
 
     # hyperparams
     params = {
-        # model
+    # model
         "linear": False,
         "bias": False,
         "last-linear": False,
@@ -145,17 +146,20 @@ def main():
 
     # load data
     set0 = tv.datasets.MNIST("../MNIST/",
-                             download=True,
-                             train = True,
-                             transform = tv.transforms.ToTensor())
+                     download=True,
+                     train = True,
+                     transform = tv.transforms.ToTensor())
     loader0 = get_loader(set0, len(set0))
     dataiter = iter(loader0)
     image, _ = dataiter.next()
 
     params.update({
         "batch_sizes": [10],
+        "hidden_sizes": [[2000,1000,500,300,101]],
+        "code_lengths": [5],
         "activation_types": ["ReLU"],
-        "code_lengths": [2],
+        #"hidden_sizes": [[10],[20]],
+        "epochs": 1,
     })
 
     verbose = True
@@ -166,7 +170,6 @@ def main():
     start = round(time.time())
 
     mp.set_start_method('spawn', force=True)
-    q = mp.Queue()
 
     for activation_type in params['activation_types']:
         if verbose: print(activation_type)
@@ -180,33 +183,34 @@ def main():
                 for hidden in params['hidden_sizes']:
                     if verbose: print(hidden + [code])
                     params['layers'] = [784] + hidden + [code]
-                    rng = range(params['iterations'])
-                    Phi = [[] for i in rng]
-                    Hist = [[] for i in rng]
 
-                    for i in rng:
-                        model = AE(**params).to(device)
+                    models = [AE(**params).to(device) for _ in range(params['iterations'])]
+                    for model in models:
                         model.share_memory()
-                        p = mp.Process(target=train, args=(model, loader, q), kwargs=params)
-                        p.start()
-                        p.join()
-                        del p
 
-                        model.to(torch.device("cpu"))
-                        Phi[i] = model.activations(image)
-                        Hist[i] = q.get()
-                    # print(cuda_memory())
+                    p = mp.Pool(processes=params['iterations'])
+                    Hist = p.starmap(partial(train, **params),
+                                     [(model, loader) for model in models])
+                    p.close()
+                    p.join()
+                    if verbose: print("training finished")
+                    
+                    models = [model.to(torch.device("cpu")) for model in models]
+                    Phi = [model.activations(image) for model in models]
+                    print(cuda_memory())
 
                     # saving the results
                     name = "AE-{}-Adam-L{}-B{}".format(activation_type, params['layers'][1:], batch)
                     if params['model_save'] == True:
-                        torch.save(model.state_dict(),"models/"+name+"_model")
+                        torch.save({
+                                    f'model-{i}': model.state_dict() for i,model in enumerate(models)
+                                    }, "models/"+name+"_model")
                     with open("models/"+name+"_activations", "wb") as fp:
                         pickle.dump(Phi, fp)
                     with open("models/"+name+"_history", "wb") as fp:
                         pickle.dump(Hist, fp)
 
-                    del model, Phi
+                    del p, Phi, Hist, models
         print("\n")
 
 
