@@ -36,8 +36,6 @@ def train(model, train_loader, device, verbose=False, **kwargs):
                                                               loss.item(),
                                                               MSE.item(),
                                                               KLD.item()))
-    return [mu.to(torch.device("cpu")).detach(), logvar.to(torch.device("cpu")).detach()]
-
 def main(sample_name):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     set0 = OU(np.load("data/" + sample_name + ".npy"), M=params['M'])
