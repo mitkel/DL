@@ -6,8 +6,8 @@ params = {
     'mu': 1.,
     'sigma': 0.2,
     'theta': 1.,
-    'T': 330,
-    'M': 30,
+    'input_dim': 30,
+    'cond_dim': 330,
 
     # samples
     'train_samples': 10000,
@@ -16,7 +16,7 @@ params = {
 
     # model
     'latent_dim': 50,
-    'bias': True,
+    'bias': False,
     'layers': [1000,500,100],
 
     # training
@@ -27,8 +27,6 @@ params = {
 }
 
 params.update({
-    'input_dim': params['M'],
-    'cond_dim': params['T']-params['M']+1,
     'name': f"res/CVAE-L{params['layers']}-C{params['latent_dim']}",
     'reg': torch.ones(1),
 })
