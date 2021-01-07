@@ -12,6 +12,7 @@ class CVAE(nn.Module):
                  bias: bool = True,
                  layers: list = None,
                  device: torch.device = torch.device("cpu"),
+                 end_relu: bool = False,
                  **kwargs) -> None:
         super().__init__()
 
@@ -32,8 +33,8 @@ class CVAE(nn.Module):
 
         self.encoder = nn.Sequential(*modules)
 
-        self.fc_mu = nn.Linear(layers[-1], latent_dim)
-        self.fc_logvar = nn.Linear(layers[-1], latent_dim)
+        self.fc_mu = nn.Linear(layers[-1], latent_dim, bias)
+        self.fc_logvar = nn.Linear(layers[-1], latent_dim, bias)
 
         #  decoder
         modules = []
@@ -46,9 +47,12 @@ class CVAE(nn.Module):
             ))
             in_features = h_dim
 
-        modules.append( # final layer is linear
+        modules.append(
             nn.Linear(in_features, input_dim, bias)
         )
+        if end_relu:
+            modules.append(nn.ReLU())
+
         self.decoder = nn.Sequential(*modules)
 
     def encode(self, input: Tensor, cond: Tensor) -> list:
@@ -58,12 +62,10 @@ class CVAE(nn.Module):
         try:
             x = torch.cat([input, cond], dim=1)
         except:
-            print(f"{input.shape},{cond.shape}")
             if len(input.shape) == 1:
                 input = input.unsqueeze(1)
             if len(cond.shape) == 1:
                 cond = cond.unsqueeze(1)
-            print(f"{z.shape},{cond.shape}")
             x = torch.cat([input, cond], dim=1)
         code = self.encoder(x)
         mu = self.fc_mu(code)
@@ -85,7 +87,6 @@ class CVAE(nn.Module):
         try:
             x = torch.cat([z, cond], dim=1)
         except:
-            print(f"{z.shape},{cond.shape}")
             if len(z.shape) == 1:
                 z = z.unsqueeze(1)
             if len(cond.shape) == 1:

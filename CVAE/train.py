@@ -1,10 +1,5 @@
 import torch
 import numpy as np
-from torch.utils.data import DataLoader
-
-from model import CVAE
-from parameters import params
-from gen_data import OU
 
 def train(model, train_loader, device, verbose=False, **kwargs):
     optimizer = kwargs['optimizer'](model.parameters(), lr=kwargs['lr'])
@@ -36,17 +31,3 @@ def train(model, train_loader, device, verbose=False, **kwargs):
                                                               loss.item(),
                                                               MSE.item(),
                                                               KLD.item()))
-def main(sample_name):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    set0 = OU(np.load("data/" + sample_name + ".npy"), M=params['M'])
-    loader = DataLoader(set0, params['batch_size'])
-    model = CVAE(device=device, **params).to(device)
-    mu, logvar = train(model, loader, device, True, **params)
-    name = params['name']+"-"+sample_name
-    torch.save(model.state_dict(),name+"_model")
-    np.save(name+"_mu",mu.numpy())
-    np.save(name+"_logvar",logvar.numpy())
-
-
-if __name__ == '__main__':
-    main("train1")
