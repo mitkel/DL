@@ -2,12 +2,12 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-def EM_step(x,dt=1,mu=0,sigma=1,theta=1, **kwargs):
+def EM_step(x,dt=1,mu=0,sigma=1,theta=1, size=None, **kwargs):
     x = np.array(x)
-    Z = np.random.normal(size=x.shape)
+    Z = np.random.normal(size=sizex`)
     return x + theta*(mu-x)*dt + np.sqrt(2*dt)*sigma*Z
 
-def stationary(size=1, mu=0, sigma=1, theta=1, **kwargs):
+def stationary(size=None, mu=0., sigma=1., theta=1., **kwargs):
     return np.random.normal(loc = mu, scale = sigma/np.sqrt(theta), size=size)
 
 # slices - # slices of the interval [0,1]
@@ -19,14 +19,6 @@ def trajectory(x0, T, slices=1, **kwargs):
         if i%slices == slices-1:
             X = np.append(X, y)
     return X
-
-def gen_data(size=1, path="", save=False, **kwargs):
-    x0 = stationary(size, **kwargs)
-    X = trajectory(x0, **kwargs)
-    if save:
-        np.save(path, X)
-    else:
-        return X
 
 class cvae_ds(Dataset):
     def __init__(self, X, Y):
