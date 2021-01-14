@@ -1,10 +1,10 @@
 .ipynb_checkpoints
 MNIST
 CIFAR10
-log/
-plots/
+data
+media
+log
+plots
 AutoEncoder/models/
 __pycache__/
 literature/
-data/
-media/
