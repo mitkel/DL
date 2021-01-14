@@ -1,11 +1,8 @@
 # Conditional variational autoencoders for stochastic processes
 
-## Aim:
-- Generate multiple trajectories of Ornstein-Uhlenbeck process
-- Each trajectory has random starting point and random parameters
-- Implement CVAE to simulate last T steps of a trajectory
-- Apply CVAE decoder to generate future trajectories of test sample
-- Compare CVAE and MCMC on pricing European and Asian options on test sample
+The aim of this project is to use CVAE to sample from unknown parameter distributions.
 
-## Starter (toy-model):
-- Train and test sample trajectories have the same process parameters
+## Refs.:
+- https://arxiv.org/abs/1312.6114
+- https://arxiv.org/abs/1606.05908
+- https://github.com/AntixK/PyTorch-VAE

@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 def EM_step(x,dt=1,mu=0,sigma=1,theta=1, size=None, **kwargs):
     x = np.array(x)
-    Z = np.random.normal(size=sizex`)
+    Z = np.random.normal(size=size)
     return x + theta*(mu-x)*dt + np.sqrt(2*dt)*sigma*Z
 
 def stationary(size=None, mu=0., sigma=1., theta=1., **kwargs):
